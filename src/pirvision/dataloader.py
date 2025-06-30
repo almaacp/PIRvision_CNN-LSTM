@@ -1,8 +1,10 @@
 def load_and_segment_data(paths):
-    import pandas as pd
+    import os, pandas as pd
+    for p in paths:
+        if not os.path.exists(p):
+            raise FileNotFoundError(f"[!] File not found: {p}")
     df_list = [pd.read_csv(p) for p in paths]
-    df = pd.concat(df_list, ignore_index=True)
-    return df
+    return pd.concat(df_list, ignore_index=True)
 
 def stratified_split(X, y, test_size, val_size, seed):
     from sklearn.model_selection import train_test_split
