@@ -16,35 +16,44 @@ from pirvision.trainer import train_model
 from pirvision.evaluator import evaluate_classification
 from pirvision.utils import plot_confusion_matrix, plot_class_distribution
 
-#%% Load raw data
+#%% Load raw data dan analisis missing values
 print(">> Loading dataset...")
-df = load_and_segment_data(DATA_PATHS)
-print(f">> Dataset shape before null handling: {df.shape}")
-null_count = df.isnull().sum().sum()
-print(f">> Total null values: {null_count}")
+df = load_and_segment_data(DATA_PATHS)  # Muat DataFrame dari beberapa file CSV
+print(f">> Dataset shape before null handling: {df.shape}") # Tampilkan bentuk awal DataFrame
+null_count = df.isnull().sum().sum()    # Hitung jumlah nilai null di seluruh DataFrame
+print(f">> Total null values: {null_count}")    # Tampilkan jumlah nilai null
+# Jika ada nilai null, tangani dengan fungsi handle_missing_values
 if null_count > 0:
     df = handle_missing_values(df)
     print(f">> Dataset shape after null handling: {df.shape}")
+# Jika tidak ada nilai null, tampilkan pesan tidak ada nilai null
 else:
     print(">> No missing values found.")
 
 #%% Pisahkan label, waktu, dan fitur numerik
+# Ganti label 3 menjadi 2 untuk konsistensi
 labels = df["Label"].replace({3: 2}).values
+# Kolom non-numerik yang akan dipisahkan
 non_numeric_cols = ["Date", "Time"]
+# Cek apakah kolom non-numerik ada
 non_numeric_df = df[non_numeric_cols] if all(col in df.columns for col in non_numeric_cols) else None
-
+# Ambil kolom numerik yang dimulai dengan "PIR_" atau "Temperature_F"
 numerical_cols = [c for c in df.columns if c.startswith("PIR_") or c == "Temperature_F"]
+# DataFrame hanya dengan fitur numerik
 features_df = df[numerical_cols]
 
 #%% Outlier analysis
+# Cek distribusi fitur numerik sebelum menghapus outlier
 plt.figure()
 sns.boxplot(data=features_df, x='Temperature_F')
 plt.title("Before Outlier Removal")
 plt.tight_layout()
 plt.show()
 
+# Hapus outlier menggunakan metode IQR untuk fitur 'Temperature_F'
 features_df = detect_outliers_iqr(features_df, 'Temperature_F')
 
+# Cek distribusi fitur numerik setelah menghapus outlier
 plt.figure()
 sns.boxplot(data=features_df, x='Temperature_F')
 plt.title("After Outlier Removal (IQR)")
@@ -52,24 +61,24 @@ plt.tight_layout()
 plt.show()
 
 #%% Segmentasi
-segment_size = WINDOW_SIZE
-total_segments = len(features_df) // segment_size
-
+segment_size = WINDOW_SIZE  # Ukuran segmen sesuai dengan WINDOW_SIZE
+total_segments = len(features_df) // segment_size   # Total segmen yang dapat dibuat
+# Bentuk data menjadi 3D array (jumlah segmen, ukuran segmen, jumlah fitur)
 X_raw = features_df.values[:total_segments * segment_size].reshape((total_segments, segment_size, -1))
-y = labels[:total_segments * segment_size].reshape(-1, segment_size)[:, 0]
-
+y = labels[:total_segments * segment_size].reshape(-1, segment_size)[:, 0]  # Ambil label pertama dari setiap segmen
 # Simpan waktu awal tiap segmen
 if non_numeric_df is not None:
     time_data = non_numeric_df.iloc[:total_segments * segment_size:segment_size].reset_index(drop=True)
 
 #%% Denoising
-X_denoised = X_raw.copy()
+X_denoised = X_raw.copy()   # Salin data mentah ke array baru untuk denoising
 for i, col in enumerate(numerical_cols):
-    if col.startswith("PIR_"):  # hanya lakukan denoising untuk fitur PIR
+    if col.startswith("PIR_"):  # Hanya lakukan denoising untuk fitur PIR
         X_denoised[:, :, i] = denoise_signal(X_raw[:, :, i])
-    else:
-        X_denoised[:, :, i] = X_raw[:, :, i]  # biarkan fitur selain PIR tetap
+    else:   # Biarkan fitur selain PIR tetap
+        X_denoised[:, :, i] = X_raw[:, :, i]
 
+# Visualisasi sebelum dan sesudah denoising
 sample_id, feature_id = 1, 1
 plt.figure(figsize=(8, 4))
 plt.plot(X_raw[sample_id, :, feature_id], label="Original", linestyle='--')
@@ -79,20 +88,22 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+# Normalized Root Mean Squared Error (NRMSE) untuk fitur PIR
 for feature_id, col in enumerate(numerical_cols):
-    if col.startswith("PIR_"):
+    if col.startswith("PIR_"):  # Hanya hitung NRMSE untuk fitur PIR
         nrmse = normalized_root_mse(X_raw[:, :, feature_id].flatten(), X_denoised[:, :, feature_id].flatten())
         print(f"NRMSE (feature {col}): {nrmse:.4f}")
     else:
-        continue  # skip non-PIR features for NRMSE
+        continue    # Lewatkan fitur selain PIR
 
 #%% Normalisasi
-X_norm_before = X_denoised.copy()
-X_reshaped = X_denoised.reshape(-1, X_denoised.shape[2])
-X_df = pd.DataFrame(X_reshaped, columns=numerical_cols)
-X_scaled_df = normalize_zscore(X_df)
-X = X_scaled_df.values.reshape(X_denoised.shape)
+X_norm_before = X_denoised.copy()   # Salin data denoised untuk normalisasi
+X_reshaped = X_denoised.reshape(-1, X_denoised.shape[2])    # Ubah bentuk menjadi 2D untuk normalisasi
+X_df = pd.DataFrame(X_reshaped, columns=numerical_cols) # Buat DataFrame dari data denoised
+X_scaled_df = normalize_zscore(X_df)    # Normalisasi Z-Score pada DataFrame
+X = X_scaled_df.values.reshape(X_denoised.shape)    # Kembalikan ke bentuk 3D
 
+# Visualisasi distribusi nilai sebelum dan sesudah normalisasi
 plt.figure(figsize=(10, 5))
 sns.boxplot(data=X_scaled_df)
 plt.title("Distribusi Nilai Setelah Normalisasi Z-Score")
@@ -101,7 +112,7 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
-#%% Distribusi kelas & waktu (jika ada)
+#%% Distribusi kelas
 plot_class_distribution(y)
 for idx, count in enumerate(np.bincount(y)):
     print(f"Class {idx}: {count} data")
@@ -111,9 +122,14 @@ X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(X, y, TEST_SIZ
 
 #%% GUI function
 def run_selected_model(model_name, balancing):
-    print(f"\n>> Running: {model_name} + {balancing}")
-
-    Xb, yb = X_train, y_train
+    print(f"\n>> Running: {model_name} + {balancing}")  # Tampilkan model dan balancing yang dipilih
+    # Tampilkan bentuk data
+    print(f">> Training set shape: {X_train.shape}")
+    print(f">> Validation set shape: {X_val.shape}")
+    print(f">> Test set shape: {X_test.shape}")
+    
+    Xb, yb = X_train, y_train   # Data untuk training
+    print()
 
     if balancing == 'SMOTE':
         print(f">> SMOTE applied")
