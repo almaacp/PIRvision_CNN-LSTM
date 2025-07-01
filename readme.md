@@ -8,12 +8,10 @@
 ## ❓ Latar Belakang
 
 Penelitian ini menangani dua tantangan utama pada dataset **PIRvision**:
-
 1. **Ketidakseimbangan kelas**, yang menyulitkan model dalam mengenali kelas minoritas.
 2. **Kebutuhan analisis spasial dan temporal** dari sinyal sensor PIR, yang belum banyak dimanfaatkan secara bersamaan di penelitian sebelumnya.
 
 Pendekatan yang digunakan:
-
 * **Model hybrid CNN-LSTM** untuk menangkap pola spasial antar sensor dan pola temporal antar waktu.
 * Evaluasi metode **balancing data** seperti **SMOTE** dan **Random Undersampling** pada data sensor time-series.
 
@@ -21,11 +19,11 @@ Pendekatan yang digunakan:
 
 ## 🔧 Instalasi
 
-### 1. Clone Repositori
+### 1. Clone Repositori dan Masuk ke Repositori
 
 ```bash
-git clone https://github.com/username/pirvision-cnn-lstm.git
-cd pirvision-cnn-lstm
+git clone https://github.com/almaacp/PIRvision_CNN-LSTM.git
+cd PIRvision_CNN-LSTM
 ```
 
 ### 2. Install Dependencies
@@ -44,7 +42,7 @@ pip install -e .
 
 ## 📦 Import Modul Dimanapun
 
-Setelah install lokal, maka dapat menggunakan package seperti:
+Setelah install lokal, maka dapat menggunakan package:
 
 ```python
 from pirvision.config import *
@@ -58,8 +56,7 @@ from pirvision.trainer import train_model
 from pirvision.evaluator import evaluate_classification
 from pirvision.utils import plot_confusion_matrix, plot_class_distribution
 ```
-Bisa dipakai di:
-
+Yang dapat diakses di:
 * Python script (`.py`)
 * Notebook
 * VS Code Interactive Window
@@ -75,7 +72,7 @@ Bisa dipakai di:
    * Balancing: `No Balancing`, `SMOTE`, `RUS`
 4. Klik `Run Model`
 
-📊 Akan ditampilkan:
+📊 Setelah menjalankan model, akan ditampilkan:
 * Metrik evaluasi (Accuracy, Precision, Recall, F1)
 * Confusion Matrix (heatmap)
 
@@ -103,9 +100,7 @@ Bisa dipakai di:
 | ----- | ------------------------- |
 | `0`   | Vacancy                   |
 | `1`   | Stationary human presence |
-| `2`   | Other activity/motion     |
-
-> Label `3` yang ada di csv diubah ke `2` agar hanya terdapat 3 kelas klasifikasi utama.
+| `3`   | Other activity/motion     |
 
 ---
 
