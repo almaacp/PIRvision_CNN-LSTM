@@ -1,7 +1,3 @@
-Berikut revisi lengkap **README.md** untuk proyek ini:
-
----
-
 # 🔎 PIRvision Activity Classification
 
 > Klasifikasi aktivitas dan keberadaan manusia berdasarkan sinyal sensor PIR menggunakan **deep learning** dan **balancing data**.
