@@ -13,7 +13,8 @@ setup(
         'seaborn',
         'tensorflow',
         'imblearn',
-        'ipywidgets'
+        'ipywidgets',
+        'PyWavelets',
     ],
     author='Alma Alya Cipta Putri',
     description='PIR sensor-based human activity classification pipeline',
