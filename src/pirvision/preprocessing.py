@@ -1,18 +1,20 @@
 from sklearn.preprocessing import StandardScaler
 import numpy as np
+import pandas as pd
 import pywt
 from sklearn.metrics import mean_squared_error
 
 def handle_missing_values(df):
     return df.dropna()  # Menghapus baris yang mengandung nilai NaN
 
-def detect_outliers_iqr(df, col):
+def detect_outliers_iqr(df, col, return_mask=False):
     Q1 = df[col].quantile(0.25)
     Q3 = df[col].quantile(0.75)
     IQR = Q3 - Q1
-    lower = Q1 - 1.5 * IQR  # Batas bawah
-    upper = Q3 + 1.5 * IQR  # Batas atas
-    return df[(df[col] >= lower) & (df[col] <= upper)]  # Menghapus baris yang mengandung outlier
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    mask = (df[col] >= lower) & (df[col] <= upper)
+    return mask if return_mask else df[mask]
 
 def denoise_signal(signal_2d, wavelet='db4', level=1):
     denoised = []
@@ -36,6 +38,6 @@ def normalized_root_mse(true, pred):
     return np.sqrt(mean_squared_error(true, pred)) / (np.max(true) - np.min(true))
 
 def normalize_zscore(df):
-    scaler = StandardScaler()   # Inisialisasi scaler untuk normalisasi Z-score
-    df[df.columns] = scaler.fit_transform(df[df.columns])   # Normalisasi menggunakan Z-score
-    return df
+    scaler = StandardScaler()
+    df_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+    return df_scaled

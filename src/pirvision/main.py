@@ -17,8 +17,10 @@ from pirvision.evaluator import evaluate_classification
 from pirvision.utils import plot_confusion_matrix, plot_class_distribution
 
 #%% Load raw data dan analisis missing values
-print(">> Loading dataset...")
 df = load_and_segment_data(DATA_PATHS)  # Muat DataFrame dari beberapa file CSV
+print(df.head())  # Tampilkan beberapa baris pertama DataFrame
+
+#%% Analisis nilai null
 print(f">> Dataset shape before null handling: {df.shape}") # Tampilkan bentuk awal DataFrame
 null_count = df.isnull().sum().sum()    # Hitung jumlah nilai null di seluruh DataFrame
 print(f">> Total null values: {null_count}")    # Tampilkan jumlah nilai null
@@ -97,14 +99,23 @@ for feature_id, col in enumerate(numerical_cols):
         continue    # Lewatkan fitur selain PIR
 
 #%% Normalisasi
-X_norm_before = X_denoised.copy()   # Salin data denoised untuk normalisasi
-X_reshaped = X_denoised.reshape(-1, X_denoised.shape[2])    # Ubah bentuk menjadi 2D untuk normalisasi
-X_df = pd.DataFrame(X_reshaped, columns=numerical_cols) # Buat DataFrame dari data denoised
-X_scaled_df = normalize_zscore(X_df)    # Normalisasi Z-Score pada DataFrame
-X = X_scaled_df.values.reshape(X_denoised.shape)    # Kembalikan ke bentuk 3D
+X_reshaped = X_denoised.reshape(-1, X_denoised.shape[2])
+X_df = pd.DataFrame(X_reshaped, columns=numerical_cols)
+X_df_before_norm = X_df.copy()
+X_scaled_df = normalize_zscore(X_df)
+X = X_scaled_df.values.reshape(X_denoised.shape)
 
-# Visualisasi distribusi nilai sebelum dan sesudah normalisasi
-plt.figure(figsize=(10, 5))
+# Visualisasi distribusi nilai sesudah normalisasi
+plt.figure(figsize=(15, 5))
+sns.boxplot(data=X_df_before_norm)
+plt.title("Distribusi Nilai Sebelum Normalisasi Z-Score")
+plt.ylabel("Nilai Asli")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+# Visualisasi distribusi nilai sesudah normalisasi
+plt.figure(figsize=(15, 5))
 sns.boxplot(data=X_scaled_df)
 plt.title("Distribusi Nilai Setelah Normalisasi Z-Score")
 plt.ylabel("Z-Score")
@@ -119,53 +130,54 @@ for idx, count in enumerate(np.bincount(y)):
 
 #%% Splitting
 X_train, X_val, X_test, y_train, y_val, y_test = stratified_split(X, y, TEST_SIZE, VAL_SIZE, RANDOM_SEED)
+# Tampilkan bentuk data
+print(f">> Training set shape: {X_train.shape}")
+print(f">> Validation set shape: {X_val.shape}")
+print(f">> Test set shape: {X_test.shape}")
 
 #%% GUI function
 def run_selected_model(model_name, balancing):
     print(f"\n>> Running: {model_name} + {balancing}")  # Tampilkan model dan balancing yang dipilih
-    # Tampilkan bentuk data
-    print(f">> Training set shape: {X_train.shape}")
-    print(f">> Validation set shape: {X_val.shape}")
-    print(f">> Test set shape: {X_test.shape}")
     
-    Xb, yb = X_train, y_train   # Data untuk training
+    Xb, yb = X_train, y_train   # Data training yang akan di balancing
     print()
 
     if balancing == 'SMOTE':
-        print(f">> SMOTE applied")
+        print(f"✓ SMOTE applied")
         Xb, yb = apply_smote(Xb.reshape(len(Xb), -1), yb)
         Xb = Xb.reshape(-1, WINDOW_SIZE, X.shape[2])
     elif balancing == 'RUS':
-        print(f">> RUS applied")
+        print(f"✓ RUS applied")
         Xb, yb = apply_rus(Xb.reshape(len(Xb), -1), yb)
         Xb = Xb.reshape(-1, WINDOW_SIZE, X.shape[2])
     else:
-        print(f">> No Balancing applied")
+        print(f"✓ No Balancing applied")
 
     if model_name == 'CNN-LSTM':
-        print(f">> CNN-LSTM applied")
+        print(f"✓ CNN-LSTM applied")
         model = build_cnn_lstm((WINDOW_SIZE, X.shape[2]), 3)
         train_model(model, Xb, yb, X_val, y_val)
         y_pred = model.predict(X_test).argmax(axis=1)
     elif model_name == 'LSTM':
-        print(f">> LSTM applied")
+        print(f"✓ LSTM applied")
         model = build_lstm((WINDOW_SIZE, X.shape[2]), 3)
         train_model(model, Xb, yb, X_val, y_val)
         y_pred = model.predict(X_test).argmax(axis=1)
     else:
-        print(f">> KNN applied")
+        print(f"✓ KNN applied\n")
         Xb_flat = Xb.reshape(len(Xb), -1)
         Xval_flat = X_val.reshape(len(X_val), -1)
         Xtest_flat = X_test.reshape(len(X_test), -1)
         model, best_k, best_acc = train_knn_with_validation(Xb_flat, yb, Xval_flat, y_val)
-        print(f">> KNN Best k={best_k} | Validation Accuracy={best_acc:.4f}")
+        print(f"\nKNN Best k={best_k} | Validation Accuracy={best_acc:.4f}")
         y_pred = model.predict(Xtest_flat)
 
-    acc, prec, rec, f1, cm = evaluate_classification(y_test, y_pred)
+    report_dict, cm = evaluate_classification(y_test, y_pred)
+    report_df = pd.DataFrame(report_dict).transpose()
+    print(f"\n\nEvaluation Report for {model_name} + {balancing}")
+    display(report_df.round(4))
     print()
-    print(f"Accuracy={acc:.4f}      Precision={prec:.4f}")
-    print(f"Recall={rec:.4f}        F1-Score={f1:.4f}")
-    plot_confusion_matrix(cm, classes=["Vacancy", "Stationary", "Motion"], title=f"{model_name} + {balancing}")
+    plot_confusion_matrix(cm, classes=["vacancy", "stationary", "motion"], title=f"Confusion Matrix {model_name} + {balancing}")
 
 #%% Interactive widgets
 model_dropdown = widgets.Dropdown(options=['CNN-LSTM', 'LSTM', 'KNN'], description='Model:')
